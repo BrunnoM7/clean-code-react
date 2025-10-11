@@ -1,11 +1,25 @@
 import React from "react";
-import { cleanup, fireEvent, render, RenderResult } from "@testing-library/react";
-import Login from "./login";
-import { ValidationStub } from "@/presentation/test";
 import faker from "faker";
+import { cleanup, fireEvent, render, RenderResult } from "@testing-library/react";
+import { ValidationStub } from "@/presentation/test";
+import { Authentication, AuthenticationParams } from "@/domain/usecases";
+import { AccountModel } from "@/domain/models";
+import Login from "./login";
+import { mockAccountModel } from "@/domain/test";
+
+class AuthenticationSpy implements Authentication {
+  account = mockAccountModel();
+  params: AuthenticationParams;
+
+  async auth(params: AuthenticationParams): Promise<AccountModel> {
+    this.params = params;
+    return Promise.resolve(this.account);
+  }
+}
 
 type SutTypes = {
   sut: RenderResult;
+  authenticationSpy: AuthenticationSpy;
 }
 
 type SutParams = {
@@ -14,11 +28,13 @@ type SutParams = {
 
 const makeSut = (params?: SutParams): SutTypes => {
   const validationStub = new ValidationStub();
+  const authenticationSpy = new AuthenticationSpy();
   validationStub.errorMessage = params?.validationError || '';
 
-  const sut = render(<Login validation={validationStub} />);
+  const sut = render(<Login validation={validationStub} authentication={authenticationSpy} />);
   return {
     sut,
+    authenticationSpy
   }
 }
 
@@ -104,7 +120,7 @@ describe('Login component', () => {
     expect(submitButton.disabled).toBe(false);
   });
 
-  test('Should should show spinner on submit', () => {
+  test('Should show spinner on submit', () => {
     const { sut } = makeSut();
 
     const emailInput = sut.getByTestId('email') as HTMLInputElement;
@@ -114,10 +130,30 @@ describe('Login component', () => {
     fireEvent.input(passwordInput, { target: { value: faker.internet.password() } });
 
     const submitButton = sut.getByTestId('submit') as HTMLButtonElement;
-
     fireEvent.click(submitButton);
+    
     const spinner = sut.getByTestId('spinner');
     
     expect(spinner).toBeTruthy();
+  });
+
+  test('Should call Authentication with correct values', () => {
+    const { sut, authenticationSpy } = makeSut();
+    const email = faker.internet.email();
+    const password = faker.internet.password();
+
+    const emailInput = sut.getByTestId('email') as HTMLInputElement;
+    fireEvent.input(emailInput, { target: { value: email } });
+
+    const passwordInput = sut.getByTestId('password') as HTMLInputElement;
+    fireEvent.input(passwordInput, { target: { value: password } });
+
+    const submitButton = sut.getByTestId('submit') as HTMLButtonElement;
+    fireEvent.click(submitButton);
+   
+    expect(authenticationSpy.params).toEqual({
+      email,
+      password
+    });
   });
 })
