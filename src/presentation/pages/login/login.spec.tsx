@@ -27,7 +27,7 @@ const makeSut = (params?: SutParams): SutTypes => {
   }
 }
 
-const simulateValidSubmit = async (sut: RenderResult, email = faker.internet.email(), password = faker.internet.password()): Promise<void> => {
+const simulateValidSubmit = (sut: RenderResult, email = faker.internet.email(), password = faker.internet.password()): void => {
   populateEmailField(sut, email);
   populatePasswordField(sut, password);
   
@@ -135,5 +135,14 @@ describe('Login component', () => {
       email,
       password
     });
+  });
+
+  test ('Should call Authentication only once', async () => {
+    const { sut, authenticationSpy } = makeSut();
+    simulateValidSubmit(sut);
+    simulateValidSubmit(sut);
+    simulateValidSubmit(sut);
+
+    expect(authenticationSpy.callsCount).toEqual(1);
   });
 })
